@@ -39,4 +39,5 @@ These examples make substantial use of the following packages, which have proven
 * [netcdf4](https://unidata.github.io/netcdf4-python/)
 * [xugrid](https://deltares.github.io/xugrid/)
 * [DFMtools](https://deltares.github.io/dfm_tools/)
+* [HydroMT] (https://github.com/Deltares/hydromt)
 
