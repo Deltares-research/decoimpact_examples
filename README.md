@@ -13,11 +13,11 @@ D-Eco Impact makes use of the [UGRID NetCDF format](https://ugrid-conventions.gi
 
 #### Model output
 
-##### Hydrodynamic model output
+##### Hydrodynamic models
 * [Delft3D 4 results](https://www.deltares.nl/en/software-and-data/products/delft3d-4-suite)
 * [SCHISM](https://ccrm.vims.edu/schismweb/)
 
-##### Hydrological model output
+##### Hydrological models
 * [wflow](https://deltares.github.io/Wflow.jl)
 
 ### Examples
@@ -26,6 +26,9 @@ Examples for the operation and use of D-Eco Impact to quantify ecological effect
 
 ### Post-processing
 D-Eco Impact exports results in the [UGRID NetCDF format](https://ugrid-conventions.github.io/ugrid-conventions/). For presentation or further analysis of these results post-processing is needed. The "postprocessing" folder contains examples for these postprocessing steps.
+
+#### Export results to ESRI shapefile
+Usefull for visual spatial presentation in GIS software. Please note that the time or depth varying aspect of the UGRID file can not be exported to this format. 
 
 ### Tests
 Subsetted data input examples from projects used to demonstrate D-Eco Impact. The "tests" folder contains example input files for testing the use of D-Eco Impact.
@@ -39,5 +42,5 @@ These examples make substantial use of the following packages, which have proven
 * [netcdf4](https://unidata.github.io/netcdf4-python/)
 * [xugrid](https://deltares.github.io/xugrid/)
 * [DFMtools](https://deltares.github.io/dfm_tools/)
-* [HydroMT] (https://github.com/Deltares/hydromt)
+* [HydroMT](https://github.com/Deltares/hydromt)
 
