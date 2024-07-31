@@ -1,7 +1,6 @@
 # D-Eco Impact examples
-This github comtains Python based examples for runs, pre-, postprocessing for [D-Eco Impact](https://www.deltares.nl/en/software-and-data/products/d-eco-impact). D-Eco Impact is open source and can be found [here](https://github.com/Deltares/D-EcoImpact).
-
-D-Eco Impact is a spatial temporal ecological postprocessing tool developed by [Deltares](https://www.deltares.nl/en/software-and-data/products/d-eco-impact) to determine the effect of abiotic and biotic conditions on ecology.  
+This github contains Python based examples for runs, pre-, postprocessing for [D-Eco Impact](https://www.deltares.nl/en/software-and-data/products/d-eco-impact). D-Eco Impact is an open source spatial temporal ecological postprocessing tool and the source code can be found [here](https://github.com/Deltares/D-EcoImpact).
+D-Eco Impact is mainly developed to determine the effect of abiotic and biotic conditions on ecological suitability.  
 
 The examples provided on this GitHub have been developed in projects. We encourage you to add your own, so that other users can benefit from these.
 
