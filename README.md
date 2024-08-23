@@ -15,6 +15,7 @@ D-Eco Impact makes use of the [UGRID NetCDF format](https://ugrid-conventions.gi
 ##### Hydrodynamic models
 * [Delft3D 4 results](https://www.deltares.nl/en/software-and-data/products/delft3d-4-suite)
 * [SCHISM](https://ccrm.vims.edu/schismweb/)
+* [SHYFEM](https://www.cmcc.it/models/shyfem-shallow-water-hydrodynamic-finite-element-model)
 
 ##### Hydrological models
 * [wflow](https://deltares.github.io/Wflow.jl)
