@@ -103,7 +103,7 @@ class DEIModel(MeshModel):
                 as_geom = True,
                 crs = crs,
             )
-
+        
         elif kind == "imod":
             mesh = self.read_imod(
                 fn = region[kind],
@@ -647,9 +647,10 @@ class DEIModel(MeshModel):
             )
             mesh_imod = imod.util.to_ugrid2d(dataset) #covert imod file to ugrid format
             mesh = xu.UgridDataset(mesh_imod)         #move to xugrid 
-        except:
+        except Exception as error:
             #TODO: NOt correctly implemented yet how to handle old UGRID formats
-            self.logger.debug("Could not open IMOD dataset file or format with xarray.")
+            self.logger.debug("Could not open IMOD file and convert it to Ugrid NetCDF: " + error)
+            raise ValueError("Could not open IMOD file and convert it to Ugrid NetCDF: :" + error)
             
 
         #correct mesh connections if necessary
