@@ -1139,7 +1139,8 @@ class DEIModel(MeshModel):
                 if(nan_value == np.nan):
                     self._mesh2d = self._mesh2d.where(uda_ras1.notnull(), drop = True)
                 else:
-                    self._mesh2d = self._mesh2d.where(self._mesh2d[variable] != nan_value, drop = True)
+                    mask = (self._mesh2d[variable] != nan_value).compute()
+                    self._mesh2d = self._mesh2d.where(mask, drop = True)
         else:
             self.logger.debug(f"'variables' should be list or str {variables}")
         
@@ -1170,8 +1171,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] <= value, drop = True)
+                mask = (self._mesh2d[variable] <= value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
 
             elif(">=" in condition):
@@ -1180,8 +1181,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] >= value, drop = True)
+                mask = (self._mesh2d[variable] >= value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             elif(">" in condition):
                 try: 
@@ -1189,8 +1190,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] > value, drop = True)
+                mask = (self._mesh2d[variable] > value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             elif("<" in condition):
                 try: 
@@ -1198,8 +1199,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] > value, drop = True)
+                mask = (self._mesh2d[variable] > value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             else:
                 try: 
@@ -1207,8 +1208,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] != value, drop = True)
+                mask = (self._mesh2d[variable] != value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
         return()
 
