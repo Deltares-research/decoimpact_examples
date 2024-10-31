@@ -14,6 +14,7 @@ import rioxarray  # required for rio accessor
 
 #TODO: temporary implementation outside of HYDROMT-core
 import xugrid as xu
+import imod
 import netCDF4 as nc
 import pathlib
 
@@ -102,10 +103,18 @@ class DEIModel(MeshModel):
                 as_geom = True,
                 crs = crs,
             )
+        
+        elif kind == "imod":
+            mesh = self.read_imod(
+                fn = region[kind],
+                bounds = bounds,
+                as_geom = True,
+                crs = crs,
+            )
             
         else:
             raise ValueError(
-                "Only 'urid' or 'grid' region kind is supported for decoimpact_ugrid model"
+                "Only 'ugrid', 'grid' or 'imod' region kind is supported for decoimpact_ugrid model"
             )
 
         # # If bounds, clip the grid to bounds
@@ -606,6 +615,60 @@ class DEIModel(MeshModel):
         
         return(mesh)
 
+    def read_imod(
+        self,
+        fn : Union[str, xr.DataArray, xr.Dataset],
+        crs: Union["pyproj.CRS", str] = None,
+        bounds: Optional[tuple] = None,
+        as_geom : Optional[bool] = False,
+    ):
+        """Method to read a IMOD schematization from file.
+        Parameters
+        ----------
+        fn:
+            Dictionary describing region of interest.
+            Currently supported format is {'imod': 'path/to/imod_file'} 
+        bounds : array-like of floats, optional
+            (xmin, ymin, xmax, ymax) bounding box to clip an extract of the grid. Should be in the same crs as grid.
+            By default None (no clipping).
+        crs: pyproj.CRS
+            The value can be anything accepted by pyproj.CRS.from_user_input(),
+             such as an authority string (eg “EPSG:4326”) or a WKT string.       
+        as_geom : boolean
+            choose this imod file as the geometry for the data to be mapped to
+        """
+        #TODO: temporary implementation outside of HYDROMT-core
+        
+        #check 
+        
+        try: 
+            dataset = xr.open_mfdataset(
+                fn,
+            )
+            mesh_imod = imod.util.to_ugrid2d(dataset) #covert imod file to ugrid format
+            mesh = xu.UgridDataset(mesh_imod)         #move to xugrid 
+        except Exception as error:
+            #TODO: NOt correctly implemented yet how to handle old UGRID formats
+            self.logger.debug("Could not open IMOD file and convert it to Ugrid NetCDF: " + error)
+            raise ValueError("Could not open IMOD file and convert it to Ugrid NetCDF: :" + error)
+            
+
+        #correct mesh connections if necessary
+        mesh = self.correct_mesh_connections(
+                fn = fn, 
+                mesh = mesh
+        ) 
+
+        #Select region of interest if applicable
+        if(bounds != None):
+            mesh = mesh.ugrid.sel(x=slice(bounds[0], bounds[2]), y=slice(bounds[1], bounds[3]))
+        
+        #Set loaded file as basis for mesh
+        if(as_geom == True):
+           self.set_as_base_mesh(mesh=mesh, crs=crs)
+        
+        return(mesh)
+
 
     def read_grid(self,
         fn: Union[str, xr.Dataset],
@@ -1076,7 +1139,8 @@ class DEIModel(MeshModel):
                 if(nan_value == np.nan):
                     self._mesh2d = self._mesh2d.where(uda_ras1.notnull(), drop = True)
                 else:
-                    self._mesh2d = self._mesh2d.where(self._mesh2d[variable] != nan_value, drop = True)
+                    mask = (self._mesh2d[variable] != nan_value).compute()
+                    self._mesh2d = self._mesh2d.where(mask, drop = True)
         else:
             self.logger.debug(f"'variables' should be list or str {variables}")
         
@@ -1107,8 +1171,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] <= value, drop = True)
+                mask = (self._mesh2d[variable] <= value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
 
             elif(">=" in condition):
@@ -1117,8 +1181,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] >= value, drop = True)
+                mask = (self._mesh2d[variable] >= value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             elif(">" in condition):
                 try: 
@@ -1126,8 +1190,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] > value, drop = True)
+                mask = (self._mesh2d[variable] > value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             elif("<" in condition):
                 try: 
@@ -1135,8 +1199,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] > value, drop = True)
+                mask = (self._mesh2d[variable] > value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
             else:
                 try: 
@@ -1144,8 +1208,8 @@ class DEIModel(MeshModel):
                 except:
                     self.logger.debug(f"'condition' is not valid {condition}")
                     return()
-                
-                self._mesh2d = self._mesh2d.where(self._mesh2d[variable] != value, drop = True)
+                mask = (self._mesh2d[variable] != value).compute()
+                self._mesh2d = self._mesh2d.where(mask, drop = True)
 
         return()
 
