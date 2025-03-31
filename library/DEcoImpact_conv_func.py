@@ -114,7 +114,7 @@ class DEIModel(MeshModel):
             
         else:
             raise ValueError(
-                "Only 'ugrid', 'grid' or 'imod' region kind is supported for decoimpact_ugrid model"
+               "Only 'ugrid', 'grid' or 'imod' region kind is supported for decoimpact_ugrid model"
             )
 
         # # If bounds, clip the grid to bounds
@@ -973,7 +973,16 @@ class DEIModel(MeshModel):
         import rasterio as rio
         from rasterio.crs import CRS
         #Code curtousy of Huite Bootsma
-
+        translation_options = [
+            "smaller_count",
+            "smaller_mean",
+            "smaller_max",
+            "smaller_min",
+            "smaller_sum",
+            "smaller_fromsquarekm",
+            "smaller_fromhectare",
+            "smaller_fromsquaremeter"
+        ]
         #read the raster data
         raster = self.read_grid(
             fn = fn,
@@ -984,6 +993,11 @@ class DEIModel(MeshModel):
         if(self._mesh2d.ugrid.bounds == raster.ugrid.bounds and translation == None):
             #same coordinate geometry
             self._mesh2d = xu.merge([self._mesh2d, raster], compat="identical")
+        
+        if(self._mesh2d.ugrid.bounds != raster.ugrid.bounds and translation == None):
+            #differing coordinate geometry, but no translation given
+            self.logger.debug("Could not proceed as no translation is defined for grid size : "+" ,".join(translation_options))
+            raise ValueError("Could not proceed as no translation is defined for grid size : "+" ,".join(translation_options))
         else:
             #check if not netcdf file
             if(os.path.splitext(os.path.basename(fn))[1] == ".nc"):
@@ -1004,16 +1018,10 @@ class DEIModel(MeshModel):
             epsg_raster = crs_raster.to_epsg()
             
             if(crs_mesh != crs_raster):
-                raster_in=raster_in.rio.reproject(
-                    'epsg:'+str(epsg_mesh), 
+                raster_in= raster_in.rio.reproject(
+                    dst_crs = 'epsg:'+str(epsg_mesh), 
                     inplace = True
-                    )
-                
-                #raster_in = rio.warp.transform_geom(
-                #    CRS.from_epsg(epsg_raster),
-                #    CRS.from_epsg(epsg_mesh),
-                #    raster_in
-                #    )
+                   )
 
             if translation.split("_")[0] == "larger":
                 self.logger.debug("Intersecting raster data based on mesh grid is not yet implemented.")
@@ -1023,7 +1031,8 @@ class DEIModel(MeshModel):
                 polygons_ugrid = self._mesh2d.ugrid.grid.to_shapely(
                     dim = self._mesh2d.ugrid.grid.face_dimension
                 )
-                polygons_gdf = gpd.GeoDataFrame(index = range(len(polygons_ugrid)), crs = crs, geometry=polygons_ugrid)
+                polygons_gdf = gpd.GeoDataFrame(index = range(len(polygons_ugrid)),
+                                     crs = crs_mesh, geometry=polygons_ugrid)
 
                 #Apply zonal statistics to raster based on polgyons
                 
@@ -1114,7 +1123,7 @@ class DEIModel(MeshModel):
 
                     #add data together
                     data.append(grid_result)
-                    
+
                 # # Get zonal statistic required via rasterstats
                 # data_array = pd.DataFrame(rs.zonal_stats(polygons_gdf, raster_in.values,
                 #     affine=raster_in.rio.transform(), stats=statistic, nodata=np.nan,
@@ -1122,7 +1131,7 @@ class DEIModel(MeshModel):
 
                 # Add the data to the UGRID data cube as a new variable
  
-                self._mesh2d[statistic +"_"+ name] = (self._mesh2d.ugrid.grid.face_dimension, data)  
+                self._mesh2d[name +"_"+ statistic] = (self._mesh2d.ugrid.grid.face_dimension, data)  
         
         return(self._mesh2d)
 
