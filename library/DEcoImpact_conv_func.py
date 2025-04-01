@@ -11,6 +11,7 @@ import geopandas as gpd
 import xarray as xr
 import logging
 import rioxarray  # required for rio accessor
+from collections import Counter
 
 #TODO: temporary implementation outside of HYDROMT-core
 import xugrid as xu
@@ -59,6 +60,17 @@ class DEIModel(MeshModel):
 
 
     # COMPONENTS
+
+    def most_common_value(self,
+            values
+    ):
+        """
+        Give the most common occuring value in an array or list
+        based on the provided array or list, if tied the first encountered
+        will be returned.
+        """
+        return Counter(values).most_common(1)[0][0]
+
     def setup_ugrid(
         self,
         region: dict,
@@ -722,7 +734,6 @@ class DEIModel(MeshModel):
                 mesh = xu.merge(var_list, compat="identical")
             else:
                 mesh = xu.merge([xu.UgridDataArray.from_structured(raster)], compat = "identical")
-                print(mesh)
                 mesh = mesh[next(iter(mesh))].fillna(-999.0)
         else:
             #convert to mesh
@@ -792,7 +803,7 @@ class DEIModel(MeshModel):
         vector = gpd.read_file(
                 fn
         )
-        
+
         #check if crs can be added
         if(crs != None):
             vector.set_crs(crs, inplace=True)
@@ -811,10 +822,6 @@ class DEIModel(MeshModel):
             vector_sel = vector.drop(columns = vector.columns.difference(keep_col))
             vector_sel_single = vector_sel.explode()
             mesh = xu.UgridDataset.from_geodataframe(vector_sel_single)
-            #for data_column in datacolumns:
-            #    mesh[data_column] = vector_sel[data_column]
-
-            #mesh = xu.merge(var_list, compat="identical")
             
         else:
             self.logger.debug("Some or all of the datacolumns metioned "+\
@@ -863,10 +870,14 @@ class DEIModel(MeshModel):
             crs = crs,
             datacolumns = datacolumns
         )
- 
-        if(self._mesh2d.ugrid.bounds == vector.ugrid.bounds):
-            #same coordinate geometry
-            self._mesh2d = xu.merge([self._mesh2d, vector], compat="identical")
+
+        if(isinstance(datacolumns,str)):
+           datacolumns = [datacolumns]
+
+        if(vector != None):
+            if(self._mesh2d.ugrid.bounds == vector.ugrid.bounds):
+                #same coordinate geometry
+                self._mesh2d = xu.merge([self._mesh2d, vector], compat="identical")
         
         else:
             #read polygon file
@@ -875,6 +886,13 @@ class DEIModel(MeshModel):
                 )
             if(polygons_in.crs == None):
                 polygons_in.to_crs({'init' : crs})
+
+            #translate to mesh crs
+            crs_mesh = next(iter(self._mesh2d.ugrid.crs.values()))
+            epsg_mesh = crs_mesh.to_epsg()
+            
+            if(polygons_in.crs.to_wkt(version='WKT2_2018') != self._mesh2d.ugrid.crs):
+                polygons_in = polygons_in.to_crs(epsg = epsg_mesh)    
         
             if translation.split("_")[0] == "larger":
                 #match centroids of UGRID base file with polygon data                
@@ -883,26 +901,49 @@ class DEIModel(MeshModel):
                 centroids = gpd.GeoDataFrame(
                     geometry=gpd.points_from_xy(*self._mesh2d.ugrid.grid.face_coordinates.T),
                 )
+                crs_mesh = next(iter(self._mesh2d.ugrid.crs.values()))
+                epsg_mesh = crs_mesh.to_epsg()
+                centroids = centroids.set_crs(epsg = epsg_mesh)
                 group_joined = gpd.sjoin(centroids, polygons_in, predicate="within", how = "left")
-                joined = group_joined.groupby('geometry').first()
-
+                
                 # Add the data to the UGRID data cube as a new variable
                 for data_column in datacolumns:
                                       
-                    if(joined[data_column].dtype == "string" or\
-                        joined[data_column].dtype == "datetime" or\
-                        joined[data_column].dtype == "object"):
+                    if(group_joined[data_column].dtype == "string" or\
+                        group_joined[data_column].dtype == "datetime" or\
+                        group_joined[data_column].dtype == "object"):
+                            
                         #convert to string and assign categories
-                        joined[data_column] = joined[data_column].astype(str)
-                        joined[data_column] = joined[data_column].astype('category')
+                        group_joined[data_column] = group_joined[data_column].astype(str)
+                        group_joined[data_column] = group_joined[data_column].astype('category')
                         
                         #store categories
                         self._categories[data_column] = [[nr,cat]for nr, cat in\
-                                         enumerate(joined[data_column].unique())]
+                                        enumerate(group_joined[data_column].cat.categories)]
 
                         #convert to integers
-                        joined[data_column] = joined[data_column].cat.codes
+                        group_joined[data_column] = group_joined[data_column].cat.codes
 
+                        #Groupby and return most frequetly occuring
+                        joined = group_joined.groupby('geometry')[data_column].agg(lambda x: self.most_common_value(x))
+
+                    elif(group_joined[data_column].dtype == "integer" or\
+                         group_joined[data_column].dtype == "float"):
+                        
+                        #Groupby and return average
+                        joined = group_joined.groupby('geometry')[data_column].agg(lambda x: np.mean(x))
+                    
+                    else:
+                        self.logger.debug("Could not proceed with grouping of data to geometry as"+\
+                                           "only strings, datetime, objects, integers and floats have been enabled.")
+                        raise ValueError("Could not proceed with grouping of data to geometry as"+\
+                                           "only strings, datetime, objects, integers and floats have been enabled.")
+
+                    #Sort data based on geometry in original centroids
+                    joined = joined.reindex(index = centroids['geometry'])
+                    joined = joined.reset_index()
+
+                    #self._mesh2d[data_column+"_test"] = (self._mesh2d.ugrid.grid.face_dimension, joined[data_column+"_test"])
                     self._mesh2d[data_column] = (self._mesh2d.ugrid.grid.face_dimension, joined[data_column])
 
             if translation.split("_")[0] == "smaller":
@@ -994,10 +1035,11 @@ class DEIModel(MeshModel):
             #same coordinate geometry
             self._mesh2d = xu.merge([self._mesh2d, raster], compat="identical")
         
-        if(self._mesh2d.ugrid.bounds != raster.ugrid.bounds and translation == None):
+        elif(self._mesh2d.ugrid.bounds != raster.ugrid.bounds and translation == None):
             #differing coordinate geometry, but no translation given
             self.logger.debug("Could not proceed as no translation is defined for grid size : "+" ,".join(translation_options))
             raise ValueError("Could not proceed as no translation is defined for grid size : "+" ,".join(translation_options))
+        
         else:
             #check if not netcdf file
             if(os.path.splitext(os.path.basename(fn))[1] == ".nc"):
@@ -1133,6 +1175,7 @@ class DEIModel(MeshModel):
  
                 self._mesh2d[name +"_"+ statistic] = (self._mesh2d.ugrid.grid.face_dimension, data)  
         
+        #return result
         return(self._mesh2d)
 
     def drop_nans(
