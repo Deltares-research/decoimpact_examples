@@ -165,7 +165,17 @@ class DEIOutput(MeshModel):
                         )
             gdf = gpd.GeoDataFrame(index = range(len(polygons_ugrid)), crs = crs_mesh, geometry=polygons_ugrid)
             for nr, variable in enumerate(list_variables):
-                gdf[store_shapecol_names[nr]] = mesh[variable][0,:].values
+                check_for_time = [True if ("time" in dimname) else False for dimname in mesh[variable].dims]
+                if(any(check_for_time) and (check_for_time[0]  == True)):
+                    print("Time dimension supplied in data variable "+variable+", only first timestep is used for exporting.")
+                    gdf[store_shapecol_names[nr]] = mesh[variable][0,:].values
+                elif(any(check_for_time) and (check_for_time[0]  == False)):
+                    raise ValueError("Time dimension supplied in data variable "+variable+", but is not first dimension.")
+                elif(len(mesh[variable].dims) > 1):
+                    raise ValueError("More than one dimension supplied in data variable "+variable+", needs to be limited to one.")
+                else:
+                    gdf[store_shapecol_names[nr]] = mesh[variable][:].values
+                
             shapefile_name = variable_name2 = os.path.splitext(os.path.basename(ugrid_ncdf))[0]
             path_shapefile_name = os.path.join(output_path, shapefile_name)
             store_shapefile_names.append(path_shapefile_name)
